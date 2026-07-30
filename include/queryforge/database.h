@@ -717,6 +717,158 @@ private:
   uint64_t next_row_id_ = 1;
 };
 
+struct TableStatistics {
+  std::string table;
+  uint64_t live_rows = 0;
+  uint64_t deleted_rows = 0;
+  uint64_t estimated_bytes = 0;
+  std::vector<uint64_t> null_counts;
+  std::vector<uint64_t> distinct_estimates;
+};
+
+class StatisticsCollector {
+public:
+  explicit StatisticsCollector(Limits limits = {});
+  std::optional<TableStatistics> collect(const Schema &schema,
+                                         const std::vector<RowRecord> &rows,
+                                         Error &error) const;
+  static std::string json(const TableStatistics &statistics);
+
+private:
+  Limits limits_;
+};
+
+struct IntegrityIssue {
+  enum class Severity { information, warning, error };
+  Severity severity = Severity::information;
+  std::string object;
+  uint64_t offset = 0;
+  std::string message;
+};
+
+class IntegrityChecker {
+public:
+  explicit IntegrityChecker(Limits limits = {});
+  std::vector<IntegrityIssue> check_database(const Database &database) const;
+  std::vector<IntegrityIssue> check_pager(const Pager &pager) const;
+  std::vector<IntegrityIssue>
+  check_wal(const std::vector<WalRecord> &records) const;
+
+private:
+  Limits limits_;
+};
+
+class PlanFormatter {
+public:
+  static std::string text(const PlanNode &plan);
+  static std::string json(const PlanNode &plan);
+  static uint64_t node_count(const PlanNode &plan);
+  static uint64_t maximum_depth(const PlanNode &plan);
+};
+
+class SqlFormatter {
+public:
+  explicit SqlFormatter(Limits limits = {});
+  std::optional<std::string> format(std::string_view sql, Error &error) const;
+  std::optional<std::vector<std::string>> split(std::string_view sql,
+                                                Error &error) const;
+
+private:
+  Limits limits_;
+};
+
+struct SchemaDifference {
+  enum class Kind {
+    create_table,
+    drop_table,
+    add_column,
+    drop_column,
+    alter_column,
+    create_index,
+    drop_index
+  };
+  Kind kind = Kind::create_table;
+  std::string object;
+  std::string detail;
+  bool destructive = false;
+};
+
+class SchemaComparator {
+public:
+  explicit SchemaComparator(Limits limits = {});
+  std::vector<SchemaDifference> compare(const Catalog &source,
+                                        const Catalog &target) const;
+  static std::string
+  migration_sql(const std::vector<SchemaDifference> &differences);
+
+private:
+  Limits limits_;
+};
+
+class CsvCodec {
+public:
+  explicit CsvCodec(Limits limits = {});
+  std::optional<std::vector<Row>> parse(std::string_view csv,
+                                        const Schema &schema, bool header,
+                                        Error &error) const;
+  std::string write(const std::vector<std::string> &columns,
+                    const std::vector<Row> &rows, bool header,
+                    Error &error) const;
+
+private:
+  Limits limits_;
+};
+
+struct BackupManifest {
+  uint32_t version = 1;
+  uint64_t database_bytes = 0;
+  uint64_t wal_bytes = 0;
+  uint64_t database_hash = 0;
+  uint64_t wal_hash = 0;
+  std::map<std::string, std::string> properties;
+};
+
+class BackupCodec {
+public:
+  explicit BackupCodec(Limits limits = {});
+  std::vector<uint8_t> create(const std::vector<uint8_t> &database,
+                              const std::vector<uint8_t> &wal,
+                              const BackupManifest &manifest,
+                              Error &error) const;
+  struct Restored {
+    std::vector<uint8_t> database;
+    std::vector<uint8_t> wal;
+    BackupManifest manifest;
+  };
+  std::optional<Restored> restore(const uint8_t *data, size_t size,
+                                  Error &error) const;
+
+private:
+  Limits limits_;
+};
+
+struct DatabaseReport {
+  uint64_t table_count = 0;
+  uint64_t index_count = 0;
+  uint64_t live_rows = 0;
+  uint64_t deleted_rows = 0;
+  uint64_t logical_bytes = 0;
+  uint64_t invariant_hash = 0;
+  std::vector<TableStatistics> tables;
+  std::vector<IntegrityIssue> issues;
+};
+
+class ReportBuilder {
+public:
+  explicit ReportBuilder(Limits limits = {});
+  DatabaseReport build(const Database &database, Error &error) const;
+  static std::string json(const DatabaseReport &report);
+  static std::string text(const DatabaseReport &report);
+
+private:
+  Limits limits_;
+};
+
 uint32_t crc32(const uint8_t *data, size_t size);
 std::string error_code_name(ErrorCode code);
 std::string data_type_name(DataType type);
