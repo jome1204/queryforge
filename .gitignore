@@ -1,0 +1,11 @@
+build/
+build-local/
+out/
+work/
+*.o
+*.obj
+*.exe
+*.pdb
+*.class
+*.pyc
+__pycache__/

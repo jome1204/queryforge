@@ -1,0 +1,31 @@
+cmake_minimum_required(VERSION 3.16)
+project(QueryForge VERSION 1.0.0 LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+option(QUERYFORGE_BUILD_TESTS "Build QueryForge tests" ON)
+option(QUERYFORGE_BUILD_TOOLS "Build QueryForge tools" ON)
+
+file(GLOB QUERYFORGE_SOURCES CONFIGURE_DEPENDS src/*.cc)
+add_library(queryforge STATIC ${QUERYFORGE_SOURCES})
+target_include_directories(queryforge PUBLIC include PRIVATE src)
+if(MSVC)
+  target_compile_options(queryforge PRIVATE /W4 /permissive-)
+else()
+  target_compile_options(queryforge PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+if(QUERYFORGE_BUILD_TOOLS)
+  add_executable(qfinspect tools/qfinspect.cc)
+  target_link_libraries(qfinspect PRIVATE queryforge)
+  add_executable(qfpage_probe tools/c/qfpage_probe.c)
+endif()
+
+if(QUERYFORGE_BUILD_TESTS)
+  enable_testing()
+  add_executable(queryforge_tests tests/tests.cc)
+  target_link_libraries(queryforge_tests PRIVATE queryforge)
+  add_test(NAME queryforge_tests COMMAND queryforge_tests)
+endif()
