@@ -210,6 +210,8 @@ std::string error_code_name(ErrorCode code) {
     return "not_found";
   case ErrorCode::duplicate:
     return "duplicate";
+  case ErrorCode::invalid_value:
+    return "invalid_value";
   case ErrorCode::invalid_state:
     return "invalid_state";
   case ErrorCode::invalid_offset:

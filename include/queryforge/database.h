@@ -28,6 +28,7 @@ enum class ErrorCode {
   constraint_error,
   not_found,
   duplicate,
+  invalid_value,
   invalid_state,
   invalid_offset,
   overflow,
