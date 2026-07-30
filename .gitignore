@@ -1,11 +1,12 @@
 build/
-build-local/
+build-*/
 out/
-work/
 *.o
 *.obj
 *.exe
 *.pdb
 *.class
-*.pyc
 __pycache__/
+*.pyc
+.idea/
+.vscode/

@@ -186,7 +186,8 @@ ExecutionResult Database::execute(const Statement &statement) {
   if (command == TransactionCommand::rollback) {
     if (!transaction_.rollback(rows_, catalog_, error))
       return {std::nullopt, std::move(error)};
-    indexes_.clear();
+    if (!rebuild_indexes(error))
+      return {std::nullopt, std::move(error)};
     return success("transaction rolled back");
   }
   if (!checkpoint(error))
@@ -523,6 +524,8 @@ ExecutionResult Database::execute_update(const UpdateStatement &update) {
     ++record.generation;
     ++affected;
   }
+  if (!rebuild_indexes(error))
+    return {std::nullopt, std::move(error)};
   QueryResult output;
   output.affected_rows = affected;
   output.message = "rows updated";
@@ -557,6 +560,8 @@ ExecutionResult Database::execute_delete(const DeleteStatement &remove) {
     ++record.generation;
     ++affected;
   }
+  if (!rebuild_indexes(error))
+    return {std::nullopt, std::move(error)};
   QueryResult output;
   output.affected_rows = affected;
   output.message = "rows deleted";
@@ -565,6 +570,9 @@ ExecutionResult Database::execute_delete(const DeleteStatement &remove) {
 
 ExecutionResult Database::execute_drop(const DropStatement &drop) {
   Error error;
+  if (transaction_.state() == TransactionState::active)
+    return failure(ErrorCode::transaction_conflict, 0,
+                   "DROP is not permitted inside a transaction");
   if (drop.kind == DropStatement::Kind::index) {
     if (!catalog_.drop_index(drop.name, error))
       return {std::nullopt, std::move(error)};
@@ -584,6 +592,33 @@ ExecutionResult Database::execute_drop(const DropStatement &drop) {
     return {std::nullopt, std::move(error)};
   rows_.erase(internal::normalize(drop.name));
   return success("table dropped");
+}
+
+bool Database::rebuild_indexes(Error &error) {
+  error.clear();
+  std::map<std::string, BTree> rebuilt;
+  RecordCodec codec(limits_);
+  for (const auto &entry : catalog_.indexes()) {
+    const IndexDefinition &definition = entry.second;
+    BTree tree(limits_);
+    uint32_t root = pager_.allocate(PageType::btree_leaf, error);
+    if (!root || !tree.initialize(root, definition.unique, error))
+      return false;
+    auto rows = rows_.find(internal::normalize(definition.table));
+    if (rows == rows_.end())
+      return internal::fail(error, ErrorCode::invalid_state, 0,
+                            "index refers to a missing table");
+    for (const RowRecord &record : rows->second) {
+      if (record.deleted)
+        continue;
+      auto key = codec.encode_key(record.values, definition.columns, error);
+      if (error || !tree.insert(std::move(key), record.row_id, error))
+        return false;
+    }
+    rebuilt.emplace(entry.first, std::move(tree));
+  }
+  indexes_ = std::move(rebuilt);
+  return true;
 }
 
 std::vector<uint8_t> Database::serialize(Error &error) const {

@@ -708,6 +708,7 @@ private:
   ExecutionResult execute_create_table(const CreateTableStatement &create);
   ExecutionResult execute_create_index(const CreateIndexStatement &create);
   ExecutionResult execute_drop(const DropStatement &drop);
+  bool rebuild_indexes(Error &error);
   Limits limits_;
   Catalog catalog_;
   Pager pager_;
