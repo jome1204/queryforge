@@ -1,0 +1,1 @@
+SELECT u.name,COUNT(n.id) AS notes FROM users AS u LEFT JOIN notes AS n ON n.user_id=u.id WHERE u.active=TRUE GROUP BY u.name HAVING COUNT(n.id)>=0 ORDER BY u.name LIMIT 100;CREATE UNIQUE INDEX users_name ON users(name);

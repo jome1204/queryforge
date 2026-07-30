@@ -1,0 +1,1 @@
+CREATE TABLE items(id INTEGER PRIMARY KEY,name TEXT,price REAL);INSERT INTO items VALUES(1,'one',1.25),(2,'two',2.5);SELECT COUNT(*),SUM(price),AVG(price) FROM items;BEGIN;UPDATE items SET price=price*2 WHERE id=2;COMMIT;SELECT * FROM items ORDER BY id;

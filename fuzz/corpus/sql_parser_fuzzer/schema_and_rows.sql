@@ -1,0 +1,1 @@
+CREATE TABLE users(id INTEGER PRIMARY KEY, name TEXT NOT NULL, score REAL DEFAULT 0);INSERT INTO users VALUES(1,'Ada',9.5),(2,'Linus',NULL);UPDATE users SET score=score+1 WHERE id=1;SELECT id,name,score FROM users WHERE score>=5 ORDER BY id;

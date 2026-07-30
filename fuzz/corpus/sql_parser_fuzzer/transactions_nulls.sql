@@ -1,0 +1,1 @@
+BEGIN; INSERT INTO users(id,name,score,active) VALUES(3,'long ''quoted'' string',NULL,FALSE); UPDATE users SET score=COALESCE(score,0)+2; ROLLBACK;
